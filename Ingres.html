@@ -26,6 +26,46 @@ header { background:linear-gradient(to right,#FF9933,#ffffff,#138808); color:#00
 canvas { margin-top:10px; background:white; padding:10px; border-radius:8px; box-shadow:0px 2px 6px rgba(0,0,0,0.1); }
 #download-btn { margin-top:8px; padding:8px 12px; background:#004080; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
 #download-btn:hover { background:#002f50; }
+#send-btn, #mic-btn {
+  background: #031495;  /* green or any color */
+  border: none;
+  padding: 6px 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 5px; /* spacing between buttons */
+}
+#send-btn svg {
+  transform: rotate(-20deg); /* slanted plane */
+}
+#mic-btn svg {
+  transform: rotate(0deg); /* slight tilt for mic if you want */
+}
+#send-btn:hover, #mic-btn:hover {
+  background: #45a049; /* darker on hover */
+}
+
+/* Legend */
+.legend-box {
+    position: absolute; 
+    top: 50px;
+    left: 50px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 10px 15px;
+    font-size: 14px;
+    line-height: 22px;
+    min-width: 140px;
+    cursor: move;
+    resize: both;
+    overflow: auto;
+    z-index: 2000;
+}
+.legend-box h4 { margin: 0 0 8px; font-size: 16px; }
+.legend-color { display: inline-block; width: 16px; height: 16px; margin-right: 8px; border: 1px solid #999; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -38,7 +78,7 @@ canvas { margin-top:10px; background:white; padding:10px; border-radius:8px; box
   <div id="lang-select-container">
     🌐 <select id="lang-select">
         <option value="hi-IN">Select your language</option>
-      <option value="en-IN">English</option>
+        <option value="en-IN">English</option>
     </select>
   </div>
 
@@ -59,11 +99,31 @@ canvas { margin-top:10px; background:white; padding:10px; border-radius:8px; box
 
   <div id="chat-container"></div>
 
-  <div id="input-container">
-    <input type="text" id="user-input" placeholder="Ask about groundwater data..." aria-label="User input">
-    <button id="mic-btn" aria-label="Start voice input">🎤</button>
-    <button id="send-btn" aria-label="Send message">Send</button>
-  </div>
+ <div id="input-container">
+  <input type="text" id="user-input" placeholder="Ask about groundwater data..." aria-label="User input">
+
+  <button id="mic-btn" aria-label="Start voice input">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 1v11"></path>
+      <path d="M19 11a7 7 0 0 1-14 0"></path>
+      <line x1="12" y1="23" x2="12" y2="17"></line>
+      <line x1="8" y1="23" x2="16" y2="23"></line>
+    </svg>
+  </button>
+
+  <button id="send-btn" aria-label="Send message">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13"></line>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+    </svg>
+  </button>
+</div>
+
+<div id="legend" class="legend-box" contenteditable="false">
+  <h4>Status</h4>
+  <div><span class="legend-color" style="background: green"></span>Safe</div>
+  <div><span class="legend-color" style="background: orange"></span>Semi Critical</div>
+  <div><span class="legend-color" style="background: red"></span>Over Exploited</div>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -123,6 +183,17 @@ function showStateData(state,data){
   addDownloadButton(state,data);
 }
 
+// Speak function
+function speak(text, lang = langSelect.value) {
+    if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = lang;
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
 // Add Message
 function addMessage(html,sender){
   let div=document.createElement('div');
@@ -130,6 +201,12 @@ function addMessage(html,sender){
   div.innerHTML=html;
   chatContainer.appendChild(div);
   chatContainer.scrollTop=chatContainer.scrollHeight;
+
+  if(sender==='bot'){
+    let tempDiv=document.createElement('div');
+    tempDiv.innerHTML=html;
+    speak(tempDiv.textContent || tempDiv.innerText);
+  }
 }
 
 // Chart 2020–2024
@@ -188,7 +265,7 @@ sendBtn.onclick=function(){
 };
 userInput.addEventListener('keypress',e=>{if(e.key==='Enter') sendBtn.click();});
 
-// Speech
+// Speech Recognition
 let recognition;
 if('webkitSpeechRecognition' in window){
   recognition=new webkitSpeechRecognition();
@@ -196,12 +273,9 @@ if('webkitSpeechRecognition' in window){
   recognition.onresult=e=>{
     let t=e.results[0][0].transcript;
     userInput.value=t; sendBtn.click();
-  };
+  }
 }
-micBtn.onclick=()=>{
-  if(recognition){ recognition.lang=langSelect.value; recognition.start();}
-  else alert("Speech recognition not supported");
-};
+micBtn.onclick=()=>{ if(recognition){ recognition.lang=langSelect.value; recognition.start();} else alert("Speech recognition not supported");};
 langSelect.onchange=()=>{if(recognition) recognition.lang=langSelect.value;};
 
 // Process User
@@ -224,10 +298,17 @@ document.getElementById('toggle-features').onclick=function(){
   else{f.style.display='none'; this.innerText="🌟 Show Key Features";}
 };
 
+// Draggable legend
+const legend = document.getElementById("legend");
+let isDragging=false, offsetX, offsetY;
+legend.addEventListener("mousedown",(e)=>{ isDragging=true; offsetX=e.clientX-legend.offsetLeft; offsetY=e.clientY-legend.offsetTop; });
+document.addEventListener("mousemove",(e)=>{ if(isDragging){ legend.style.left=e.clientX-offsetX+"px"; legend.style.top=e.clientY-offsetY+"px"; }});
+document.addEventListener("mouseup",()=>{ isDragging=false; });
+
 // Initial greeting
-addMessage("Hello! I am your INGRES AI Virtual Assistant. Ask me about groundwater data across India.","bot");
+const greetingText = "Hello! I am your INGRES AI Virtual Assistant. Ask me about groundwater data across India.";
+addMessage(greetingText,"bot");  // display
+speak(greetingText);              // speak
 </script>
 </body>
 </html>
-
-
