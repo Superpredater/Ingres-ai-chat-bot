@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💧 INGRES AI ChatBOT Voice Multilingual Input</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<style>
+body { margin:0; font-family:Arial,sans-serif; display:flex; height:100vh; }
+#map { width:50%; height:100vh; }
+#chat-section { width:50%; display:flex; flex-direction:column; background:linear-gradient(to bottom,#FF9933 0%,#ffffff 50%,#138808 100%); }
+header { background:linear-gradient(to right,#FF9933,#ffffff,#138808); color:#000080; font-weight:bold; font-size:20px; padding:12px; text-align:center; border-bottom:2px solid #000080; display:flex; justify-content:space-between; align-items:center; }
+#chat-container { flex:1; padding:15px; overflow-y:auto; display:flex; flex-direction:column; }
+.message { max-width:70%; padding:10px; margin:8px 0; border-radius:10px; line-height:1.4; backdrop-filter:blur(5px); }
+.user { align-self:flex-end; background:#000080; color:white; border-bottom-right-radius:0; box-shadow:0 2px 4px rgba(0,0,0,0.2); }
+.bot { align-self:flex-start; background:#f9f9f9; color:#222; border:1px solid #ddd; border-bottom-left-radius:0; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+#input-container { display:flex; padding:10px; background:rgba(255,255,255,0.9); border-top:1px solid #ccc; }
+#user-input { flex:1; padding:10px; border:1px solid #aaa; border-radius:8px; font-size:14px; }
+#send-btn,#mic-btn { margin-left:10px; padding:10px 15px; background:#000080; color:white; border:none; border-radius:8px; cursor:pointer; }
+#send-btn:hover,#mic-btn:hover { background:#004080; }
+canvas { margin-top:10px; background:white; padding:10px; border-radius:8px; box-shadow:0px 2px 6px rgba(0,0,0,0.1); }
+#download-btn { margin-top:8px; padding:8px 12px; background:#004080; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
+#download-btn:hover { background:#002f50; }
+</style>
+</head>
+<body>
+
+<div id="map">Offline Map Loading...</div>
+
+<div id="chat-section">
+  <header>
+    💧 INGRES AI Virtual Assistant
+    <select id="lang-select">
+      <option value="en-US">English</option>
+      <option value="hi-IN">Hindi</option>
+      <option value="bn-IN">Bengali</option>
+      <option value="te-IN">Telugu</option>
+      <option value="mr-IN">Marathi</option>
+      <option value="ta-IN">Tamil</option>
+      <option value="gu-IN">Gujarati</option>
+      <option value="kn-IN">Kannada</option>
+      <option value="ml-IN">Malayalam</option>
+      <option value="pa-IN">Punjabi</option>
+      <option value="or-IN">Odia</option>
+      <option value="as-IN">Assamese</option>
+    </select>
+  </header>
+  <div id="chat-container"></div>
+
+  <div id="input-container">
+    <input type="text" id="user-input" placeholder="Ask about groundwater data..." aria-label="User input">
+    <button id="mic-btn" aria-label="Start voice input">🎤</button>
+    <button id="send-btn" aria-label="Send message">Send</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+<script>
+const chatContainer=document.getElementById('chat-container');
+const userInput=document.getElementById('user-input');
+const sendBtn=document.getElementById('send-btn');
+const micBtn=document.getElementById('mic-btn');
+const langSelect=document.getElementById('lang-select');
+
+// Groundwater Data
+const groundwaterData={
+  "andhra pradesh": {coords:[15.9129,79.7400], status:"Semi-Critical", recharge:"600 MCM", extraction:"450 MCM", stage:"75%", history:[72,75,77,79,80]},
+  "bihar": {coords:[25.0961,85.3131], status:"Over-Exploited", recharge:"350 MCM", extraction:"500 MCM", stage:"145%", history:[140,145,148,150,152]},
+  "kerala": {coords:[10.8505,76.2711], status:"Safe", recharge:"950 MCM", extraction:"400 MCM", stage:"42%", history:[42,43,44,45,46]},
+  "maharashtra": {coords:[19.7515,75.7139], status:"Over-Exploited", recharge:"900 MCM", extraction:"1200 MCM", stage:"133%", history:[130,133,135,138,140]},
+  "uttar pradesh": {coords:[26.8467,80.9462], status:"Critical", recharge:"700 MCM", extraction:"900 MCM", stage:"128%", history:[120,128,130,135,140]}
+};
+
+// Map
+let map=L.map('map').setView([22.9734,78.6569],5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+function getMarkerIcon(status){
+  const color=status==="Over-Exploited"?"red":status==="Semi-Critical"?"orange":"green";
+  return L.divIcon({className:'custom-marker',html:`<div style="width:15px;height:15px;background:${color};border-radius:50%;border:2px solid #fff"></div>`});
+}
+for(let state in groundwaterData){
+  let data=groundwaterData[state];
+  let marker=L.marker(data.coords,{icon:getMarkerIcon(data.status)}).addTo(map);
+  marker.bindPopup(`<b>${state.toUpperCase()}</b><br>Status: ${data.status}<br>Recharge: ${data.recharge}<br>Extraction: ${data.extraction}<br>Stage: ${data.stage}`);
+  marker.on('click',()=>showStateData(state,data));
+}
+
+// Messages
+function addMessage(text,sender){
+  let div=document.createElement('div');
+  div.className='message '+sender;
+  div.innerHTML=text;
+  chatContainer.appendChild(div);
+  chatContainer.scrollTop=chatContainer.scrollHeight;
+  if(sender==='bot'){ speakText(text); }
+}
+
+// Speech synthesis in English
+function speakText(text){
+  if('speechSynthesis' in window){
+    let utter=new SpeechSynthesisUtterance(text.replace(/<br>/g,' '));
+    utter.lang='en-US';
+    window.speechSynthesis.speak(utter);
+  }
+}
+
+// Show state data + chart + download
+function showStateData(state,data){
+  chatContainer.innerHTML="";
+  addMessage(`Groundwater Data for <b>${state.toUpperCase()}</b>:`,"bot");
+  addMessage(`Status: ${data.status}<br>Recharge: ${data.recharge}<br>Extraction: ${data.extraction}<br>Stage: ${data.stage}`,"bot");
+  generateChart(state,data.history);
+  addDownloadButton(state,data);
+}
+
+// Chart 2020–2024
+function generateChart(state,history){
+  let canvas=document.createElement('canvas');
+  canvas.id='chart-'+state.replace(/\s+/g,'-');
+  canvas.width=580; canvas.height=540;
+  chatContainer.appendChild(canvas);
+  new Chart(canvas,{
+    type:'line',
+    data:{ labels:['2020','2021','2022','2023','2024'], datasets:[{ label:'Stage (%)', data:history.slice(-5), borderColor:'blue', backgroundColor:'rgba(0,0,255,0.1)', fill:true, tension:0.3 }] },
+    options:{responsive:false, scales:{y:{beginAtZero:true}}}
+  });
+}
+
+// PDF download
+function addDownloadButton(state,data){
+  let btn=document.createElement('button');
+  btn.id='download-btn';
+  btn.innerText=`Download ${state.toUpperCase()} Report (PDF)`;
+  btn.onclick=()=>generatePDF(state,data);
+  chatContainer.appendChild(btn);
+}
+async function generatePDF(state,data){
+  const {jsPDF}=window.jspdf;
+  let doc=new jsPDF();
+  doc.setFontSize(16); doc.text(`Groundwater Report: ${state.toUpperCase()}`,10,20);
+  doc.setFontSize(12);
+  doc.text(`Status: ${data.status}`,10,30);
+  doc.text(`Recharge: ${data.recharge}`,10,40);
+  doc.text(`Extraction: ${data.extraction}`,10,50);
+  doc.text(`Stage of Development: ${data.stage}`,10,60);
+  let canvas=document.getElementById('chart-'+state.replace(/\s+/g,'-'));
+  if(canvas){ let img=canvas.toDataURL('image/png'); doc.addImage(img,'PNG',10,70,180,90);}
+  doc.save(`${state.replace(/\s+/g,'_')}_Groundwater_Report.pdf`);
+}
+
+// User input
+sendBtn.onclick=function(){ let text=userInput.value.trim(); if(!text) return; addMessage(text,'user'); userInput.value=''; processUserInput(text); };
+userInput.addEventListener('keypress',e=>{if(e.key==='Enter') sendBtn.click();});
+
+// Multilingual voice input
+let recognition;
+function startRecognition(){
+  if(!('webkitSpeechRecognition' in window)){ alert("Speech recognition not supported"); return; }
+  recognition=new webkitSpeechRecognition();
+  recognition.continuous=false; recognition.interimResults=false;
+  recognition.lang=langSelect.value;
+  recognition.onresult=e=>{
+    let t=e.results[0][0].transcript;
+    userInput.value=t; sendBtn.click();
+  };
+  recognition.start();
+}
+micBtn.onclick=startRecognition;
+
+// Process user
+function processUserInput(text){
+  text=text.toLowerCase(); let found=false;
+  for(let state in groundwaterData){
+    if(text.includes(state)){
+      let data=groundwaterData[state];
+      showStateData(state,data);
+      found=true; break;
+    }
+  }
+  if(!found) addMessage("Sorry, I couldn't find data for that state. Please try another state name.","bot");
+}
+
+// Greeting
+addMessage("Hello! I am your INGRES AI Virtual Assistant. Ask me about groundwater data in India. Speak or type in any supported language. Bot will reply in English.","bot");
+</script>
+
+</body>
+</html>
