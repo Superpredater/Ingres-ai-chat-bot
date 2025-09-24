@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>💧 INGRES AI ChatBOT Unified Prototype</title>
+<title>💧 Jalvaani AI Chatbot</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <style>
 body { margin:0; font-family:Arial,sans-serif; display:flex; height:100vh; }
@@ -56,7 +56,6 @@ canvas { margin-top:10px; background:white; padding:10px; border-radius:8px; box
     line-height: 22px;
     min-width: 140px;
     cursor: move;
-    resize: both;
     overflow: auto;
     z-index: 2000;
 }
@@ -69,7 +68,7 @@ canvas { margin-top:10px; background:white; padding:10px; border-radius:8px; box
 <div id="map">Offline Map Loading...</div>
 
 <div id="chat-section">
-  <header>💧 INGRES AI Virtual Assistant</header>
+  <header>💧 Jalvaani AI Chatbot</header>
 
   <div id="lang-select-container">
     🌐 <select id="lang-select">
@@ -148,14 +147,8 @@ const langSelect=document.getElementById('lang-select');
 // FAQs toggle
 const faqBtn = document.getElementById('faq-btn');
 const faqPanel = document.getElementById('faq-panel');
-faqBtn.onclick = () => {
-  faqPanel.style.display = (faqPanel.style.display === 'none' || faqPanel.style.display === '') ? 'block' : 'none';
-};
-document.addEventListener('click', (e) => {
-  if (!faqPanel.contains(e.target) && e.target !== faqBtn) {
-    faqPanel.style.display = 'none';
-  }
-});
+faqBtn.onclick = () => { faqPanel.style.display = (faqPanel.style.display === 'none' || faqPanel.style.display === '') ? 'block' : 'none'; };
+document.addEventListener('click', (e) => { if (!faqPanel.contains(e.target) && e.target !== faqBtn) faqPanel.style.display = 'none'; });
 
 // Groundwater Data
 const groundwaterData={
@@ -175,6 +168,7 @@ const groundwaterData={
   "haryana": {coords:[29.0588,76.0856], status:"Critical", recharge:"400 MCM", extraction:"600 MCM", stage:"150%", history:[140,145,150,155,160]},
   "assam": {coords:[26.2006,92.9376], status:"Safe", recharge:"850 MCM", extraction:"300 MCM", stage:"35%", history:[35,36,37,38,38]}
 };
+
 // Initialize Map
 let map = L.map('map').setView([22.9734,78.6569], 5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
@@ -192,11 +186,38 @@ for(let state in groundwaterData){
   marker.on('click',()=>showStateData(state,data));
 }
 
+// Explanations
+function getStageExplanation(stageStr){
+  const stage=parseInt(stageStr);
+  if(stage<90) return "Groundwater extraction is within sustainable limits.";
+  if(stage<120) return "Groundwater is moderately stressed; careful management needed.";
+  return "Groundwater is over-exploited; urgent conservation required.";
+}
+function getRechargeExplanation(rechargeStr){
+  const recharge=parseInt(rechargeStr);
+  if(recharge<400) return "Low recharge: Limited groundwater replenishment.";
+  if(recharge<700) return "Moderate recharge: Groundwater is moderately replenished.";
+  return "High recharge: Groundwater is well replenished.";
+}
+function getExtractionExplanation(extractionStr){
+  const extraction=parseInt(extractionStr);
+  if(extraction<400) return "Low extraction: Water usage is sustainable.";
+  if(extraction<700) return "Moderate extraction: Water usage is moderate, monitor carefully.";
+  return "High extraction: Water usage is high, may stress groundwater resources.";
+}
+
 // Show state data in chat
 function showStateData(state,data){
   chatContainer.innerHTML="";
   addMessage(`Groundwater Data for <b>${state.toUpperCase()}</b>:`,"bot");
-  addMessage(`Status: ${data.status}<br>Recharge: ${data.recharge}<br>Extraction: ${data.extraction}<br>Stage of Development: ${data.stage}`,"bot");
+  addMessage(
+    `Status: ${data.status}<br>
+     Recharge: ${data.recharge} <i>(${getRechargeExplanation(data.recharge)})</i><br>
+     Extraction: ${data.extraction} <i>(${getExtractionExplanation(data.extraction)})</i><br>
+     Stage of Development: ${data.stage} <i>(${getStageExplanation(data.stage)})</i>`,
+    "bot"
+  );
+  map.setView(data.coords,7,{animate:true});
   generateChart(state,data.history);
   addDownloadButton(state,data);
 }
@@ -219,7 +240,6 @@ function addMessage(html,sender){
   div.innerHTML=html;
   chatContainer.appendChild(div);
   chatContainer.scrollTop=chatContainer.scrollHeight;
-
   if(sender==='bot'){
     let tempDiv=document.createElement('div');
     tempDiv.innerHTML=html;
@@ -229,6 +249,8 @@ function addMessage(html,sender){
 
 // Chart 2020–2024
 function generateChart(state,history){
+  let oldCanvas=document.getElementById('chart-'+state.replace(/\s+/g,'-'));
+  if(oldCanvas) oldCanvas.remove();
   let canvas=document.createElement('canvas');
   canvas.id='chart-'+state.replace(/\s+/g,'-');
   canvas.width=400; canvas.height=350;
@@ -266,9 +288,9 @@ async function generatePDF(state,data){
   doc.setFontSize(16); doc.text(`Groundwater Report: ${state.toUpperCase()}`,10,20);
   doc.setFontSize(12);
   doc.text(`Status: ${data.status}`,10,30);
-  doc.text(`Recharge: ${data.recharge}`,10,40);
-  doc.text(`Extraction: ${data.extraction}`,10,50);
-  doc.text(`Stage of Development: ${data.stage}`,10,60);
+  doc.text(`Recharge: ${data.recharge} (${getRechargeExplanation(data.recharge)})`,10,40);
+  doc.text(`Extraction: ${data.extraction} (${getExtractionExplanation(data.extraction)})`,10,50);
+  doc.text(`Stage of Development: ${data.stage} (${getStageExplanation(data.stage)})`,10,60);
   let canvas=document.getElementById('chart-'+state.replace(/\s+/g,'-'));
   if(canvas){ let img=canvas.toDataURL('image/png'); doc.addImage(img,'PNG',10,70,180,90);}
   doc.save(`${state.replace(/\s+/g,'_')}_Groundwater_Report.pdf`);
@@ -288,10 +310,7 @@ let recognition;
 if('webkitSpeechRecognition' in window){
   recognition=new webkitSpeechRecognition();
   recognition.continuous=false; recognition.interimResults=false; recognition.lang=langSelect.value;
-  recognition.onresult=e=>{
-    let t=e.results[0][0].transcript;
-    userInput.value=t; sendBtn.click();
-  }
+  recognition.onresult=e=>{ let t=e.results[0][0].transcript; userInput.value=t; sendBtn.click();}
 }
 micBtn.onclick=()=>{ if(recognition){ recognition.lang=langSelect.value; recognition.start();} else alert("Speech recognition not supported");};
 langSelect.onchange=()=>{if(recognition) recognition.lang=langSelect.value;};
@@ -324,10 +343,9 @@ document.addEventListener("mousemove",(e)=>{ if(isDragging){ legend.style.left=e
 document.addEventListener("mouseup",()=>{ isDragging=false; });
 
 // Initial greeting
-const greetingText = "Hello! I am your INGRES AI Virtual Assistant. Ask me about groundwater data across India.";
+const greetingText = "Hello! I am your Jalvaani AI Chatbot. Ask me about groundwater data across India.";
 addMessage(greetingText,"bot");  
 speak(greetingText);              
 </script>
 </body>
 </html>
-
