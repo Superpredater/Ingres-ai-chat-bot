@@ -231,7 +231,7 @@ function addMessage(html,sender){
 function generateChart(state,history){
   let canvas=document.createElement('canvas');
   canvas.id='chart-'+state.replace(/\s+/g,'-');
-  canvas.width=580; canvas.height=540;
+  canvas.width=400; canvas.height=350;
   chatContainer.appendChild(canvas);
   new Chart(canvas,{
     type:'line',
@@ -330,3 +330,4 @@ speak(greetingText);
 </script>
 </body>
 </html>
+
