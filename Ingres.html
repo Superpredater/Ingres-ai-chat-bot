@@ -10,8 +10,10 @@ body { margin:0; font-family:Arial,sans-serif; display:flex; height:100vh; }
 #map { width:50%; height:100vh; }
 #chat-section { width:50%; display:flex; flex-direction:column; background:linear-gradient(to bottom,#FF9933 0%,#ffffff 50%,#138808 100%); }
 header { background:linear-gradient(to right,#FF9933,#ffffff,#138808); color:#000080; font-weight:bold; font-size:20px; padding:12px; text-align:center; border-bottom:2px solid #000080; }
-#lang-select-container { padding:10px; background:rgba(255,255,255,0.8); text-align:center; }
+#lang-select-container { padding:10px; background:rgba(255,255,255,0.8); text-align:center; position:relative; }
 #lang-select { padding:5px; border-radius:5px; border:none; }
+#faq-btn { margin-left:10px;padding:5px 10px;border:none;border-radius:5px;background:#004080;color:white;cursor:pointer; }
+#faq-panel { display:none; position:absolute; top:50px; left:10px; background:white; border:1px solid #ccc; border-radius:8px; padding:10px; max-width:250px; z-index:1000; font-size:14px; }
 #key-features-container { padding:5px; text-align:center; }
 #key-features-container button { width:100%; padding:8px; background:#004080; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px; }
 #key-features { display:none; max-height:180px; overflow-y:auto; padding:10px; background:rgba(255,255,255,0.9); border-radius:8px; border:1px solid #ccc; font-size:14px; line-height:1.5; text-align:left; }
@@ -27,7 +29,7 @@ canvas { margin-top:10px; background:white; padding:10px; border-radius:8px; box
 #download-btn { margin-top:8px; padding:8px 12px; background:#004080; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
 #download-btn:hover { background:#002f50; }
 #send-btn, #mic-btn {
-  background: #031495;  /* green or any color */
+  background: #031495;
   border: none;
   padding: 6px 10px;
   border-radius: 50%;
@@ -35,17 +37,11 @@ canvas { margin-top:10px; background:white; padding:10px; border-radius:8px; box
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 5px; /* spacing between buttons */
+  margin-left: 5px;
 }
-#send-btn svg {
-  transform: rotate(-20deg); /* slanted plane */
-}
-#mic-btn svg {
-  transform: rotate(0deg); /* slight tilt for mic if you want */
-}
-#send-btn:hover, #mic-btn:hover {
-  background: #45a049; /* darker on hover */
-}
+#send-btn svg { transform: rotate(-20deg); }
+#mic-btn svg { transform: rotate(0deg); }
+#send-btn:hover, #mic-btn:hover { background: #45a049; }
 
 /* Legend */
 .legend-box {
@@ -80,6 +76,17 @@ canvas { margin-top:10px; background:white; padding:10px; border-radius:8px; box
         <option value="hi-IN">Select your language</option>
         <option value="en-IN">English</option>
     </select>
+
+    <button id="faq-btn">❓ FAQs</button>
+
+    <div id="faq-panel">
+      <ul>
+        <li>How to find groundwater data for a state?</li>
+        <li>How to download PDF reports?</li>
+        <li>How to change language?</li>
+        <li>What does stage of development mean?</li>
+      </ul>
+    </div>
   </div>
 
   <div id="key-features-container">
@@ -138,6 +145,18 @@ const sendBtn=document.getElementById('send-btn');
 const micBtn=document.getElementById('mic-btn');
 const langSelect=document.getElementById('lang-select');
 
+// FAQs toggle
+const faqBtn = document.getElementById('faq-btn');
+const faqPanel = document.getElementById('faq-panel');
+faqBtn.onclick = () => {
+  faqPanel.style.display = (faqPanel.style.display === 'none' || faqPanel.style.display === '') ? 'block' : 'none';
+};
+document.addEventListener('click', (e) => {
+  if (!faqPanel.contains(e.target) && e.target !== faqBtn) {
+    faqPanel.style.display = 'none';
+  }
+});
+
 // Groundwater Data
 const groundwaterData={
   "andhra pradesh": {coords:[15.9129,79.7400], status:"Semi-Critical", recharge:"600 MCM", extraction:"450 MCM", stage:"75%", history:[72,75,77,79,80]},
@@ -156,7 +175,6 @@ const groundwaterData={
   "haryana": {coords:[29.0588,76.0856], status:"Critical", recharge:"400 MCM", extraction:"600 MCM", stage:"150%", history:[140,145,150,155,160]},
   "assam": {coords:[26.2006,92.9376], status:"Safe", recharge:"850 MCM", extraction:"300 MCM", stage:"35%", history:[35,36,37,38,38]}
 };
-
 // Initialize Map
 let map = L.map('map').setView([22.9734,78.6569], 5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
@@ -307,8 +325,8 @@ document.addEventListener("mouseup",()=>{ isDragging=false; });
 
 // Initial greeting
 const greetingText = "Hello! I am your INGRES AI Virtual Assistant. Ask me about groundwater data across India.";
-addMessage(greetingText,"bot");  // display
-speak(greetingText);              // speak
+addMessage(greetingText,"bot");  
+speak(greetingText);              
 </script>
 </body>
 </html>
